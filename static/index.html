@@ -1,0 +1,1253 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VNT Hub</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --line: #d7dde5;
+      --text: #18202a;
+      --muted: #647184;
+      --brand: #0f766e;
+      --brand-dark: #115e59;
+      --danger: #b42318;
+      --warn: #b54708;
+      --ok: #027a48;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+    }
+    button, input, textarea, select {
+      font: inherit;
+    }
+    button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+    button.primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+    button.primary:hover { background: var(--brand-dark); }
+    button.danger { color: var(--danger); border-color: #f1b4ae; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #fff;
+      color: var(--text);
+    }
+    textarea {
+      min-height: 86px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+    header {
+      height: 56px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      position: sticky;
+      top: 0;
+      z-index: 3;
+    }
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+      font-weight: 700;
+    }
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .login {
+      max-width: 360px;
+      margin: 90px auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .login h2 { margin: 0 0 16px; font-size: 20px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 16px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .panel h2 {
+      font-size: 16px;
+      margin: 0 0 12px;
+    }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row.wrap { flex-wrap: wrap; }
+    .field { margin-bottom: 10px; }
+    .label {
+      display: block;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-size: 12px;
+    }
+    .list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .item {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fff;
+      text-align: left;
+    }
+    .item.active { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand) inset; }
+    .item-title { font-weight: 650; overflow-wrap: anywhere; }
+    .item-meta { color: var(--muted); font-size: 12px; margin-top: 4px; overflow-wrap: anywhere; }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .tab {
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      border-bottom: 2px solid transparent;
+      padding: 8px 10px;
+    }
+    .tab.active {
+      border-bottom-color: var(--brand);
+      color: var(--brand-dark);
+      font-weight: 650;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    th { color: var(--muted); font-weight: 650; background: #f8fafc; }
+    tr:last-child td { border-bottom: 0; }
+    .status-online { color: var(--ok); font-weight: 650; }
+    .status-offline { color: var(--muted); font-weight: 650; }
+    .status-pending { color: var(--warn); font-weight: 650; }
+    .status-kicked { color: var(--danger); font-weight: 650; }
+    .msg {
+      min-height: 22px;
+      color: var(--muted);
+      margin: 8px 0;
+      overflow-wrap: anywhere;
+    }
+    .msg.error { color: var(--danger); }
+    .two {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 12px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+    }
+    .form-grid .wide { grid-column: 1 / -1; }
+    .section-title {
+      grid-column: 1 / -1;
+      font-weight: 700;
+      margin-top: 8px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+    .summary {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .summary-row {
+      display: grid;
+      grid-template-columns: 130px minmax(0, 1fr);
+      gap: 10px;
+    }
+    .summary-row span:first-child { color: var(--muted); }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .42);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 20;
+    }
+    .modal {
+      width: min(920px, 100%);
+      max-height: min(92vh, 920px);
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, .24);
+    }
+    .modal.small { width: min(560px, 100%); }
+    .modal-head, .modal-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .modal-foot {
+      border-top: 1px solid var(--line);
+      border-bottom: 0;
+      bottom: 0;
+      top: auto;
+      justify-content: flex-end;
+    }
+    .modal-head h2 { margin: 0; font-size: 16px; }
+    .modal-body { padding: 16px; }
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+    }
+    .check-row input { width: auto; }
+    .hidden { display: none !important; }
+    @media (max-width: 860px) {
+      header { padding: 0 12px; }
+      main { padding: 12px; }
+      .grid, .two, .form-grid { grid-template-columns: 1fr; }
+      .form-grid .wide { grid-column: auto; }
+      .row { align-items: stretch; flex-direction: column; }
+      .summary-row { grid-template-columns: 1fr; gap: 2px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<div id="login" class="login">
+  <h2>VNT Hub</h2>
+  <div class="field">
+    <label class="label" for="username">用户名</label>
+    <input id="username" autocomplete="username" value="admin">
+  </div>
+  <div class="field">
+    <label class="label" for="password">密码</label>
+    <input id="password" class="focus-secret" type="password" autocomplete="current-password" value="admin">
+  </div>
+  <div class="row">
+    <button class="primary" id="loginBtn">登录</button>
+    <button id="registerBtn">注册</button>
+  </div>
+  <div id="loginMsg" class="msg"></div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <h1>VNT Hub</h1>
+    <div class="row">
+      <button id="refreshBtn">刷新</button>
+      <button id="logoutBtn">退出</button>
+    </div>
+  </header>
+  <main>
+    <div class="grid">
+      <aside class="panel">
+        <h2>房间</h2>
+        <div class="row">
+          <input id="roomName" placeholder="房间名称">
+          <button class="primary" id="createRoomBtn">创建</button>
+        </div>
+        <div id="rooms" class="list"></div>
+      </aside>
+      <section class="panel">
+        <div class="toolbar">
+          <div>
+            <h2 id="roomTitle">请选择房间</h2>
+            <div id="roomMeta" class="item-meta"></div>
+          </div>
+          <button class="danger" id="deleteRoomBtn" disabled>删除房间</button>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-tab="devices">设备</button>
+          <button class="tab" data-tab="groups">分组配置</button>
+          <button class="tab" data-tab="events">事件</button>
+          <button class="tab" data-tab="backup">备份</button>
+        </div>
+        <div id="msg" class="msg"></div>
+        <div id="tab-devices">
+          <div class="toolbar">
+            <span>设备状态</span>
+            <button id="reloadDevicesBtn">刷新设备</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>设备</th>
+                <th>状态</th>
+                <th>IP / 节点</th>
+                <th>分组</th>
+                <th>流量</th>
+                <th>版本</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="deviceRows"></tbody>
+          </table>
+        </div>
+        <div id="tab-groups" class="hidden">
+          <div class="two">
+            <div>
+              <button class="primary" id="newGroupBtn">新建分组</button>
+              <button id="saveGroupBtn" disabled>编辑配置</button>
+              <button id="pushGroupBtn" disabled>下发分组</button>
+              <button class="danger" id="deleteGroupBtn" disabled>删除分组</button>
+              <div id="groups" class="list"></div>
+            </div>
+            <div>
+              <div class="toolbar">
+                <span>当前分组配置</span>
+                <button id="editGroupConfigBtn" disabled>编辑</button>
+              </div>
+              <div id="configSummary" class="summary"></div>
+            </div>
+          </div>
+        </div>
+        <div id="tab-events" class="hidden">
+          <div class="toolbar">
+            <span>最近事件</span>
+            <button id="reloadEventsBtn">刷新事件</button>
+          </div>
+          <table>
+            <thead>
+              <tr><th>时间</th><th>设备</th><th>类型</th><th>内容</th></tr>
+            </thead>
+            <tbody id="eventRows"></tbody>
+          </table>
+        </div>
+        <div id="tab-backup" class="hidden">
+          <div class="msg">
+            管理员可导出/导入整库迁移文件，用于 Rust 版与 Cloudflare KV 版互迁；普通用户仅导出个人数据。
+          </div>
+          <div class="row wrap">
+            <select id="exportScope">
+              <option value="full">整库迁移（admin）</option>
+              <option value="user">个人备份</option>
+            </select>
+            <button id="exportBtn">导出备份</button>
+            <input id="importFile" type="file" accept="application/json,.json">
+            <select id="importMode">
+              <option value="merge">合并导入</option>
+              <option value="overwrite">覆盖导入</option>
+            </select>
+            <button id="importBtn">导入备份</button>
+          </div>
+          <div id="backupReport" class="summary" style="margin-top:12px;"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="configModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="configModalTitle">组网参数配置</h2>
+      <button id="closeConfigModalBtn">关闭</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field wide">
+          <label class="label" for="cfgGroupName">分组名称</label>
+          <input id="cfgGroupName" maxlength="64" placeholder="例如 默认组">
+        </div>
+        <div class="section-title">基本参数</div>
+        <div class="field">
+          <label class="label" for="cfgToken">组网 token</label>
+          <input id="cfgToken" class="focus-secret" type="password" maxlength="64">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgDeviceName">设备名称</label>
+          <input id="cfgDeviceName" maxlength="64">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgVirtualIp">虚拟 IPv4</label>
+          <input id="cfgVirtualIp" maxlength="15" placeholder="留空则自动分配">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgServerAddress">服务器地址</label>
+          <input id="cfgServerAddress" maxlength="128" placeholder="vnt.wherewego.top:29872">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgProtocol">连接服务器协议</label>
+          <select id="cfgProtocol">
+            <option value="UDP">UDP</option>
+            <option value="TCP">TCP</option>
+            <option value="WS">WS</option>
+            <option value="WSS">WSS</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="cfgCompressor">压缩</label>
+          <select id="cfgCompressor">
+            <option value="none">none</option>
+            <option value="lz4">lz4</option>
+            <option value="zstd">zstd</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="cfgCompressionLevel">zstd 压缩级别</label>
+          <input id="cfgCompressionLevel" type="number" min="0" max="22" value="3">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgAllowWg">允许 WireGuard 客户端访问</label>
+          <select id="cfgAllowWg">
+            <option value="false">不允许</option>
+            <option value="true">允许</option>
+          </select>
+        </div>
+        <div class="section-title">子网代理与端口映射</div>
+        <div class="field wide">
+          <label class="label" for="cfgInIps">in-ip 对端路由，每行一条</label>
+          <textarea id="cfgInIps" placeholder="192.168.0.1/24,10.26.0.10"></textarea>
+        </div>
+        <div class="field wide">
+          <label class="label" for="cfgOutIps">out-ip 本机网段，每行一条</label>
+          <textarea id="cfgOutIps" placeholder="192.168.2.0/24"></textarea>
+        </div>
+        <div class="field wide">
+          <label class="label" for="cfgMappings">端口映射，每行一条</label>
+          <textarea id="cfgMappings" placeholder="tcp:0.0.0.0:80-10.26.0.10:80"></textarea>
+        </div>
+        <div class="section-title">传输安全</div>
+        <div class="field">
+          <label class="label" for="cfgPassword">组网密码</label>
+          <input id="cfgPassword" class="focus-secret" type="password" maxlength="256">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgCipher">加密算法</label>
+          <select id="cfgCipher">
+            <option value="xor">xor</option>
+            <option value="chacha20_poly1305">chacha20_poly1305</option>
+            <option value="chacha20">chacha20</option>
+            <option value="aes_ecb">aes_ecb</option>
+            <option value="aes_cbc">aes_cbc</option>
+            <option value="sm4_cbc">sm4_cbc</option>
+            <option value="aes_gcm">aes_gcm</option>
+          </select>
+        </div>
+        <label class="check-row"><input id="cfgServerEncrypt" type="checkbox">服务端加密</label>
+        <label class="check-row"><input id="cfgFinger" type="checkbox">数据指纹校验</label>
+        <div class="section-title">更多参数</div>
+        <div class="field">
+          <label class="label" for="cfgDeviceId">设备 ID</label>
+          <input id="cfgDeviceId">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgTapName">虚拟网卡名称</label>
+          <input id="cfgTapName" maxlength="32">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgMtu">虚拟网卡 MTU</label>
+          <input id="cfgMtu" type="number" min="1" placeholder="1410">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgPunchModel">打洞模式</label>
+          <select id="cfgPunchModel">
+            <option value="all">IPv4 + IPv6</option>
+            <option value="ipv4">仅 IPv4</option>
+            <option value="ipv6">仅 IPv6</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="cfgUseChannel">传输模式</label>
+          <select id="cfgUseChannel">
+            <option value="all">直连 + 中继</option>
+            <option value="p2p">仅直连</option>
+            <option value="relay">仅中继</option>
+          </select>
+        </div>
+        <div class="field wide">
+          <label class="label" for="cfgPorts">打洞端口，每行一个</label>
+          <textarea id="cfgPorts" placeholder="29872"></textarea>
+        </div>
+        <div class="field">
+          <label class="label" for="cfgRouteMode">路径模式</label>
+          <select id="cfgRouteMode">
+            <option value="p2p">P2P 优先</option>
+            <option value="first_latency">低延迟优先</option>
+          </select>
+        </div>
+        <label class="check-row"><input id="cfgNoProxy" type="checkbox">关闭内置 IP 代理</label>
+        <div class="field wide">
+          <label class="label" for="cfgDns">自定义 DNS，每行一条</label>
+          <textarea id="cfgDns"></textarea>
+        </div>
+        <div class="field">
+          <label class="label" for="cfgPacketLoss">模拟丢包率 0-1</label>
+          <input id="cfgPacketLoss" type="number" min="0" max="1" step="0.01">
+        </div>
+        <div class="field">
+          <label class="label" for="cfgPacketDelay">模拟延迟 ms</label>
+          <input id="cfgPacketDelay" type="number" min="0">
+        </div>
+        <div class="field wide">
+          <label class="label" for="cfgStunServers">STUN 服务器，每行一条</label>
+          <textarea id="cfgStunServers"></textarea>
+        </div>
+        <div class="field">
+          <label class="label" for="cfgLocalDev">本地物理网卡</label>
+          <input id="cfgLocalDev" maxlength="50">
+        </div>
+        <label class="check-row"><input id="cfgDisableRelay" type="checkbox">禁用客户端中继</label>
+        <div class="field wide">
+          <label class="label" for="cfgHook">Hook 命令</label>
+          <textarea id="cfgHook"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button id="cancelConfigBtn">取消</button>
+      <button class="primary" id="saveConfigBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="deviceModal" class="modal-backdrop hidden">
+  <div class="modal small">
+    <div class="modal-head">
+      <h2>设备配置</h2>
+      <button id="closeDeviceModalBtn">关闭</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="label" for="devDisplayName">设备显示名</label>
+        <input id="devDisplayName" maxlength="64">
+      </div>
+      <div class="field">
+        <label class="label" for="devNetworkIp">虚拟 IPv4</label>
+        <input id="devNetworkIp" maxlength="15" placeholder="留空则使用分组配置或自动分配">
+      </div>
+      <div class="field">
+        <label class="label" for="devNodeId">网络节点 ID</label>
+        <input id="devNodeId">
+      </div>
+      <div class="field">
+        <label class="label" for="devGroup">所属分组</label>
+        <select id="devGroup"></select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button id="cancelDeviceBtn">取消</button>
+      <button class="primary" id="saveDeviceBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const defaultConfig = {
+  tap: false,
+  token: "",
+  device_id: "",
+  name: "",
+  server_address: "vnt.wherewego.top:29872",
+  stun_server: [
+    "stun.miwifi.com:3478",
+    "stun.chat.bilibili.com:3478",
+    "stun.hitv.com:3478",
+    "stun.cdnbye.com:3478"
+  ],
+  dns: [],
+  in_ips: [],
+  out_ips: [],
+  password: null,
+  mtu: null,
+  tcp: false,
+  ip: null,
+  use_channel: "all",
+  no_proxy: false,
+  server_encrypt: false,
+  cipher_model: null,
+  finger: false,
+  punch_model: "all",
+  ports: null,
+  cmd: false,
+  first_latency: false,
+  device_name: null,
+  packet_loss: null,
+  packet_delay: 0,
+  mapping: [],
+  compressor: null,
+  vnt_mapping: [],
+  disable_stats: false,
+  allow_wire_guard: false,
+  local_dev: null,
+  disable_relay: false,
+  hook: null
+};
+
+const state = {
+  token: localStorage.getItem("vntHubToken") || "",
+  rooms: [],
+  devices: [],
+  groups: [],
+  selectedRoom: "",
+  selectedGroup: "",
+  tab: "devices",
+  configMode: "create",
+  editingDeviceId: ""
+};
+
+const $ = (id) => document.getElementById(id);
+
+function showApp() {
+  $("login").classList.toggle("hidden", !!state.token);
+  $("app").classList.toggle("hidden", !state.token);
+}
+
+function setMsg(text, isError) {
+  const el = $("msg");
+  el.textContent = text || "";
+  el.classList.toggle("error", !!isError);
+}
+
+function setLoginMsg(text, isError) {
+  const el = $("loginMsg");
+  el.textContent = text || "";
+  el.classList.toggle("error", !!isError);
+}
+
+async function api(path, options = {}) {
+  const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
+  if (state.token) headers.Authorization = "Bearer " + state.token;
+  const res = await fetch(path, Object.assign({}, options, { headers }));
+  if (!res.ok) {
+    throw new Error(await res.text() || ("HTTP " + res.status));
+  }
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) return res.json();
+  return res.text();
+}
+
+function listText(values) {
+  return (values || []).join("\n");
+}
+
+function readList(id) {
+  return $(id).value.split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+}
+
+function protocolFromConfig(config) {
+  const server = config.server_address || "";
+  if (server.startsWith("tcp://")) return "TCP";
+  if (server.startsWith("ws://")) return "WS";
+  if (server.startsWith("wss://")) return "WSS";
+  return config.tcp ? "TCP" : "UDP";
+}
+
+function stripServerScheme(value) {
+  return (value || "").replace(/^(udp|tcp|ws|wss):\/\//i, "");
+}
+
+function serverWithProtocol(address, protocol) {
+  const raw = stripServerScheme(address);
+  if (protocol === "TCP") return "tcp://" + raw;
+  if (protocol === "WS") return "ws://" + raw;
+  if (protocol === "WSS") return "wss://" + raw;
+  return raw;
+}
+
+function parseCompressor(value) {
+  if (!value || value === "none") return { method: "none", level: 3 };
+  if (value.startsWith("zstd")) {
+    const parts = value.split(",");
+    return { method: "zstd", level: Number(parts[1] || 3) || 3 };
+  }
+  return { method: value, level: 3 };
+}
+
+function compressorValue(method, level) {
+  if (!method || method === "none") return "none";
+  if (method === "zstd") return "zstd," + (Number(level) || 3);
+  return method;
+}
+
+function fillConfigForm(groupName, config) {
+  const cfg = Object.assign({}, defaultConfig, config || {});
+  const compressor = parseCompressor(cfg.compressor);
+  $("cfgGroupName").value = groupName || "";
+  $("cfgToken").value = cfg.token || "";
+  $("cfgDeviceName").value = cfg.name || cfg.device_name || "";
+  $("cfgVirtualIp").value = cfg.ip || "";
+  $("cfgServerAddress").value = stripServerScheme(cfg.server_address || defaultConfig.server_address);
+  $("cfgProtocol").value = protocolFromConfig(cfg);
+  $("cfgCompressor").value = compressor.method;
+  $("cfgCompressionLevel").value = compressor.level;
+  $("cfgAllowWg").value = String(!!cfg.allow_wire_guard);
+  $("cfgInIps").value = listText(cfg.in_ips);
+  $("cfgOutIps").value = listText(cfg.out_ips);
+  $("cfgMappings").value = listText(cfg.mapping);
+  $("cfgPassword").value = cfg.password || "";
+  $("cfgCipher").value = cfg.cipher_model || "xor";
+  $("cfgServerEncrypt").checked = !!cfg.server_encrypt;
+  $("cfgFinger").checked = !!cfg.finger;
+  $("cfgDeviceId").value = cfg.device_id || "";
+  $("cfgTapName").value = cfg.device_name || "";
+  $("cfgMtu").value = cfg.mtu || "";
+  $("cfgPunchModel").value = cfg.punch_model || "all";
+  $("cfgUseChannel").value = cfg.use_channel || "all";
+  $("cfgPorts").value = listText(cfg.ports || []);
+  $("cfgRouteMode").value = cfg.first_latency ? "first_latency" : "p2p";
+  $("cfgNoProxy").checked = !!cfg.no_proxy;
+  $("cfgDns").value = listText(cfg.dns);
+  $("cfgPacketLoss").value = cfg.packet_loss ?? "";
+  $("cfgPacketDelay").value = cfg.packet_delay ?? 0;
+  $("cfgStunServers").value = listText(cfg.stun_server);
+  $("cfgLocalDev").value = cfg.local_dev || "";
+  $("cfgDisableRelay").checked = !!cfg.disable_relay;
+  $("cfgHook").value = cfg.hook || "";
+}
+
+function readConfigForm() {
+  const protocol = $("cfgProtocol").value;
+  const mtu = $("cfgMtu").value.trim();
+  const ports = readList("cfgPorts").map(v => Number(v)).filter(v => Number.isInteger(v) && v >= 0 && v <= 65535);
+  return Object.assign({}, defaultConfig, {
+    token: $("cfgToken").value,
+    name: $("cfgDeviceName").value.trim(),
+    server_address: serverWithProtocol($("cfgServerAddress").value.trim(), protocol),
+    tcp: protocol === "TCP",
+    stun_server: readList("cfgStunServers"),
+    dns: readList("cfgDns"),
+    in_ips: readList("cfgInIps"),
+    out_ips: readList("cfgOutIps"),
+    password: $("cfgPassword").value || null,
+    mtu: mtu ? Number(mtu) : null,
+    ip: $("cfgVirtualIp").value.trim() || null,
+    use_channel: $("cfgUseChannel").value,
+    no_proxy: $("cfgNoProxy").checked,
+    server_encrypt: $("cfgServerEncrypt").checked,
+    cipher_model: $("cfgCipher").value || null,
+    finger: $("cfgFinger").checked,
+    punch_model: $("cfgPunchModel").value,
+    ports: ports.length ? ports : null,
+    first_latency: $("cfgRouteMode").value === "first_latency",
+    device_name: $("cfgTapName").value.trim() || null,
+    packet_loss: $("cfgPacketLoss").value === "" ? null : Number($("cfgPacketLoss").value),
+    packet_delay: Number($("cfgPacketDelay").value || 0),
+    mapping: readList("cfgMappings"),
+    compressor: compressorValue($("cfgCompressor").value, $("cfgCompressionLevel").value),
+    allow_wire_guard: $("cfgAllowWg").value === "true",
+    local_dev: $("cfgLocalDev").value.trim() || null,
+    disable_relay: $("cfgDisableRelay").checked,
+    hook: $("cfgHook").value.trim() || null,
+    device_id: $("cfgDeviceId").value.trim()
+  });
+}
+
+function validateConfigForm(config) {
+  if (!$("cfgGroupName").value.trim()) throw new Error("分组名称不能为空");
+  if (!config.token) throw new Error("组网 token 不能为空");
+  if (!config.server_address) throw new Error("服务器地址不能为空");
+  if (config.ip && !/^\d{1,3}(\.\d{1,3}){3}$/.test(config.ip)) throw new Error("虚拟 IPv4 格式错误");
+  if (config.packet_loss != null && (config.packet_loss < 0 || config.packet_loss > 1)) throw new Error("模拟丢包率必须在 0 到 1 之间");
+  if (config.packet_delay < 0) throw new Error("模拟延迟不能小于 0");
+}
+
+function renderConfigSummary(config) {
+  const cfg = Object.assign({}, defaultConfig, config || {});
+  const rows = [
+    ["组网 token", cfg.token ? "已填写" : "未填写"],
+    ["服务器", cfg.server_address || "-"],
+    ["协议", protocolFromConfig(cfg)],
+    ["虚拟 IPv4", cfg.ip || "自动分配"],
+    ["组网密码", cfg.password ? "已设置" : "未设置"],
+    ["加密算法", cfg.cipher_model || "xor"],
+    ["传输模式", cfg.use_channel || "all"],
+    ["打洞模式", cfg.punch_model || "all"],
+    ["DNS", (cfg.dns || []).join(", ") || "-"],
+    ["端口映射", (cfg.mapping || []).length ? `${cfg.mapping.length} 条` : "-"]
+  ];
+  $("configSummary").innerHTML = rows.map(([k, v]) => `<div class="summary-row"><span>${k}</span><span></span></div>`).join("");
+  [...$("configSummary").querySelectorAll(".summary-row")].forEach((row, i) => {
+    row.children[1].textContent = rows[i][1];
+  });
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024) return value.toFixed(0) + " B";
+  if (value < 1024 * 1024) return (value / 1024).toFixed(2) + " KB";
+  if (value < 1024 * 1024 * 1024) return (value / 1024 / 1024).toFixed(2) + " MB";
+  return (value / 1024 / 1024 / 1024).toFixed(2) + " GB";
+}
+
+function formatTime(ts) {
+  return ts ? new Date(ts * 1000).toLocaleString() : "-";
+}
+
+async function login() {
+  setLoginMsg("");
+  try {
+    const data = await api("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username: $("username").value, password: $("password").value })
+    });
+    state.token = data.access_token;
+    localStorage.setItem("vntHubToken", state.token);
+    showApp();
+    await loadRooms();
+  } catch (e) {
+    setLoginMsg("登录失败：" + e.message, true);
+  }
+}
+
+async function register() {
+  setLoginMsg("");
+  const username = $("username").value.trim();
+  const password = $("password").value;
+  if (!username || !password) {
+    setLoginMsg("请输入用户名和密码", true);
+    return;
+  }
+  try {
+    await api("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ username, password })
+    });
+    setLoginMsg("注册成功，请登录");
+  } catch (e) {
+    setLoginMsg("注册失败：" + e.message, true);
+  }
+}
+
+function logout() {
+  state.token = "";
+  localStorage.removeItem("vntHubToken");
+  showApp();
+}
+
+async function loadRooms() {
+  setMsg("");
+  state.rooms = await api("/api/rooms");
+  if (!state.selectedRoom && state.rooms[0]) state.selectedRoom = state.rooms[0].id;
+  if (state.selectedRoom && !state.rooms.some(r => r.id === state.selectedRoom)) state.selectedRoom = "";
+  renderRooms();
+  await loadRoomData();
+}
+
+async function loadRoomData() {
+  const room = state.rooms.find(r => r.id === state.selectedRoom);
+  $("deleteRoomBtn").disabled = !room;
+  $("roomTitle").textContent = room ? room.name : "请选择房间";
+  $("roomMeta").textContent = room ? "Room ID: " + room.id : "";
+  if (!room) {
+    state.devices = [];
+    state.groups = [];
+    renderDevices();
+    renderGroups();
+    return;
+  }
+  const [devices, groups] = await Promise.all([
+    api(`/api/rooms/${room.id}/devices`),
+    api(`/api/rooms/${room.id}/groups`)
+  ]);
+  state.devices = devices;
+  state.groups = groups;
+  if (state.selectedGroup && !groups.some(g => g.id === state.selectedGroup)) state.selectedGroup = "";
+  renderDevices();
+  renderGroups();
+}
+
+function renderRooms() {
+  $("rooms").innerHTML = "";
+  for (const room of state.rooms) {
+    const btn = document.createElement("button");
+    btn.className = "item" + (room.id === state.selectedRoom ? " active" : "");
+    btn.innerHTML = `<div class="item-title"></div><div class="item-meta"></div>`;
+    btn.querySelector(".item-title").textContent = room.name;
+    btn.querySelector(".item-meta").textContent = room.id;
+    btn.onclick = async () => {
+      state.selectedRoom = room.id;
+      state.selectedGroup = "";
+      renderRooms();
+      await loadRoomData();
+    };
+    $("rooms").appendChild(btn);
+  }
+}
+
+function renderDevices() {
+  const body = $("deviceRows");
+  body.innerHTML = "";
+  for (const d of state.devices) {
+    const group = state.groups.find(g => g.id === d.group_id);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong></strong><div class="item-meta"></div></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td class="row wrap"></td>`;
+    tr.children[0].querySelector("strong").textContent = d.display_name;
+    tr.children[0].querySelector(".item-meta").textContent = d.id;
+    tr.children[1].textContent = d.status;
+    tr.children[1].className = "status-" + d.status;
+    tr.children[2].textContent = [d.network_ip, d.network_node_id].filter(Boolean).join(" / ") || "-";
+    tr.children[3].textContent = group ? group.name : "-";
+    tr.children[4].innerHTML = `<div></div><div class="item-meta"></div>`;
+    tr.children[4].children[0].textContent = `↑ ${formatBytes(d.up_stream)} / ↓ ${formatBytes(d.down_stream)}`;
+    tr.children[4].children[1].textContent = "更新 " + formatTime(d.traffic_updated_at);
+    tr.children[5].textContent = d.config_version;
+    const ops = tr.children[6];
+    const select = document.createElement("select");
+    select.innerHTML = `<option value="">未分组</option>` + state.groups.map(g => `<option value="${g.id}"></option>`).join("");
+    [...select.options].forEach((o, i) => {
+      if (i > 0) o.textContent = state.groups[i - 1].name;
+    });
+    select.value = d.group_id || "";
+    select.onchange = () => updateDeviceGroup(d.id, select.value || null);
+    ops.appendChild(select);
+    ops.appendChild(action("编辑", () => openDeviceModal(d)));
+    ops.appendChild(action("配置", () => openDeviceGroupConfig(d)));
+    ops.appendChild(action("下发", () => pushDevice(d.id)));
+    ops.appendChild(action("踢出", () => kickDevice(d.id), "danger"));
+    body.appendChild(tr);
+  }
+}
+
+function renderGroups() {
+  $("groups").innerHTML = "";
+  const selected = state.groups.find(g => g.id === state.selectedGroup);
+  $("saveGroupBtn").disabled = !selected;
+  $("pushGroupBtn").disabled = !selected;
+  $("deleteGroupBtn").disabled = !selected;
+  $("editGroupConfigBtn").disabled = !selected;
+  renderConfigSummary(selected ? selected.config : defaultConfig);
+  for (const group of state.groups) {
+    const btn = document.createElement("button");
+    btn.className = "item" + (group.id === state.selectedGroup ? " active" : "");
+    btn.innerHTML = `<div class="item-title"></div><div class="item-meta"></div>`;
+    btn.querySelector(".item-title").textContent = group.name;
+    btn.querySelector(".item-meta").textContent = `版本 ${group.config_version} / ${group.id}`;
+    btn.onclick = () => {
+      state.selectedGroup = group.id;
+      renderGroups();
+    };
+    $("groups").appendChild(btn);
+  }
+}
+
+function action(text, fn, cls) {
+  const btn = document.createElement("button");
+  btn.textContent = text;
+  if (cls) btn.className = cls;
+  btn.onclick = fn;
+  return btn;
+}
+
+function openConfigModal(mode, group) {
+  state.configMode = mode;
+  $("configModalTitle").textContent = mode === "create" ? "新建分组配置" : "编辑分组配置";
+  fillConfigForm(group ? group.name : "默认组", group ? group.config : defaultConfig);
+  $("configModal").classList.remove("hidden");
+}
+
+function closeConfigModal() {
+  $("configModal").classList.add("hidden");
+}
+
+function openDeviceModal(device) {
+  state.editingDeviceId = device.id;
+  $("devDisplayName").value = device.display_name || "";
+  $("devNetworkIp").value = device.network_ip || "";
+  $("devNodeId").value = device.network_node_id || "";
+  $("devGroup").innerHTML = `<option value="">未分组</option>` + state.groups.map(g => `<option value="${g.id}"></option>`).join("");
+  [...$("devGroup").options].forEach((o, i) => {
+    if (i > 0) o.textContent = state.groups[i - 1].name;
+  });
+  $("devGroup").value = device.group_id || "";
+  $("deviceModal").classList.remove("hidden");
+}
+
+function openDeviceGroupConfig(device) {
+  if (!device.group_id) {
+    setMsg("该设备未分配分组，请先选择分组", true);
+    return;
+  }
+  const group = state.groups.find(g => g.id === device.group_id);
+  if (!group) {
+    setMsg("未找到设备所属分组", true);
+    return;
+  }
+  state.selectedGroup = group.id;
+  renderGroups();
+  openConfigModal("edit", group);
+}
+
+function closeDeviceModal() {
+  state.editingDeviceId = "";
+  $("deviceModal").classList.add("hidden");
+}
+
+async function saveDeviceFromModal() {
+  if (!state.selectedRoom || !state.editingDeviceId) return;
+  await api(`/api/rooms/${state.selectedRoom}/devices/${state.editingDeviceId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      display_name: $("devDisplayName").value.trim(),
+      group_id: $("devGroup").value || null,
+      network_ip: $("devNetworkIp").value.trim() || null,
+      network_node_id: $("devNodeId").value.trim() || null
+    })
+  });
+  closeDeviceModal();
+  await loadRoomData();
+  setMsg("设备配置已保存");
+}
+
+async function createRoom() {
+  const name = $("roomName").value.trim();
+  if (!name) return;
+  await api("/api/rooms", { method: "POST", body: JSON.stringify({ name }) });
+  $("roomName").value = "";
+  await loadRooms();
+}
+
+async function deleteRoom() {
+  if (!state.selectedRoom) return;
+  await api(`/api/rooms/${state.selectedRoom}`, { method: "DELETE" });
+  state.selectedRoom = "";
+  await loadRooms();
+}
+
+async function createGroup() {
+  if (!state.selectedRoom) return;
+  openConfigModal("create", null);
+}
+
+async function saveConfigFromModal() {
+  if (!state.selectedRoom) return;
+  try {
+    const name = $("cfgGroupName").value.trim();
+    const config = readConfigForm();
+    validateConfigForm(config);
+    if (state.configMode === "create") {
+      const group = await api(`/api/rooms/${state.selectedRoom}/groups`, {
+        method: "POST",
+        body: JSON.stringify({ name, config })
+      });
+      state.selectedGroup = group.id;
+      setMsg("分组已创建");
+    } else {
+      await api(`/api/rooms/${state.selectedRoom}/groups/${state.selectedGroup}`, {
+        method: "PUT",
+        body: JSON.stringify({ name, config })
+      });
+      setMsg("分组已保存");
+    }
+    closeConfigModal();
+    await loadRoomData();
+  } catch (e) {
+    setMsg("保存配置失败：" + e.message, true);
+  }
+}
+
+async function saveGroup() {
+  if (!state.selectedRoom || !state.selectedGroup) return;
+  const selected = state.groups.find(g => g.id === state.selectedGroup);
+  openConfigModal("edit", selected);
+}
+
+async function deleteGroup() {
+  if (!state.selectedRoom || !state.selectedGroup) return;
+  await api(`/api/rooms/${state.selectedRoom}/groups/${state.selectedGroup}`, { method: "DELETE" });
+  state.selectedGroup = "";
+  await loadRoomData();
+}
+
+async function pushGroup() {
+  if (!state.selectedRoom || !state.selectedGroup) return;
+  const result = await api(`/api/rooms/${state.selectedRoom}/groups/${state.selectedGroup}/push`, { method: "POST" });
+  setMsg("已下发在线设备数：" + result.pushed);
+}
+
+async function pushDevice(id) {
+  const result = await api(`/api/rooms/${state.selectedRoom}/devices/${id}/push`, { method: "POST" });
+  setMsg(result.pushed ? "已下发设备" : "设备不在线，已记录快照");
+}
+
+async function kickDevice(id) {
+  await api(`/api/rooms/${state.selectedRoom}/devices/${id}/kick`, { method: "POST" });
+  await loadRoomData();
+}
+
+async function updateDeviceGroup(id, groupId) {
+  await api(`/api/rooms/${state.selectedRoom}/devices/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ group_id: groupId })
+  });
+  await loadRoomData();
+}
+
+async function loadEvents() {
+  const rows = await api("/api/events?limit=200");
+  const body = $("eventRows");
+  body.innerHTML = "";
+  for (const e of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td></td><td></td><td></td><td></td>";
+    tr.children[0].textContent = new Date(e.created_at * 1000).toLocaleString();
+    tr.children[1].textContent = e.device_id;
+    tr.children[2].textContent = e.event_type;
+    tr.children[3].textContent = e.payload || "";
+    body.appendChild(tr);
+  }
+}
+
+async function exportBackup() {
+  const scope = $("exportScope").value;
+  const data = await api(`/api/backup/export?scope=${scope}`);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = scope === "full" ? "vnt-hub-full-migration.json" : "vnt-hub-user-backup.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importBackup() {
+  const file = $("importFile").files[0];
+  if (!file) return;
+  const text = await file.text();
+  const report = await api(`/api/backup/import?mode=${$("importMode").value}`, {
+    method: "POST",
+    body: text
+  });
+  renderBackupReport(report);
+  await loadRooms();
+}
+
+function renderBackupReport(report) {
+  const rows = [
+    ["模式", report.mode || "-"],
+    ["来源", report.source_mode || "-"],
+    ["范围", report.scope || "-"]
+  ];
+  $("backupReport").innerHTML = rows.map(([k, v]) => `<div class="summary-row"><span>${k}</span><span>${v}</span></div>`).join("");
+  for (const table of report.tables || []) {
+    const row = document.createElement("div");
+    row.className = "summary-row";
+    row.innerHTML = "<span></span><span></span>";
+    row.children[0].textContent = table.table;
+    row.children[1].textContent = `尝试 ${table.attempted} / 导入 ${table.imported} / 跳过 ${table.skipped}`;
+    $("backupReport").appendChild(row);
+  }
+}
+
+function switchTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
+  for (const name of ["devices", "groups", "events", "backup"]) {
+    $(`tab-${name}`).classList.toggle("hidden", name !== tab);
+  }
+  if (tab === "events") loadEvents().catch(e => setMsg("加载事件失败：" + e.message, true));
+}
+
+$("loginBtn").onclick = login;
+$("registerBtn").onclick = register;
+$("logoutBtn").onclick = logout;
+$("refreshBtn").onclick = () => loadRooms().catch(e => setMsg("刷新失败：" + e.message, true));
+$("createRoomBtn").onclick = () => createRoom().catch(e => setMsg("创建房间失败：" + e.message, true));
+$("deleteRoomBtn").onclick = () => deleteRoom().catch(e => setMsg("删除房间失败：" + e.message, true));
+$("reloadDevicesBtn").onclick = () => loadRoomData().catch(e => setMsg("刷新设备失败：" + e.message, true));
+$("newGroupBtn").onclick = createGroup;
+$("saveGroupBtn").onclick = saveGroup;
+$("editGroupConfigBtn").onclick = saveGroup;
+$("pushGroupBtn").onclick = () => pushGroup().catch(e => setMsg("下发失败：" + e.message, true));
+$("deleteGroupBtn").onclick = () => deleteGroup().catch(e => setMsg("删除分组失败：" + e.message, true));
+$("reloadEventsBtn").onclick = () => loadEvents().catch(e => setMsg("刷新事件失败：" + e.message, true));
+$("exportBtn").onclick = () => exportBackup().catch(e => setMsg("导出失败：" + e.message, true));
+$("importBtn").onclick = () => importBackup().catch(e => setMsg("导入失败：" + e.message, true));
+$("closeConfigModalBtn").onclick = closeConfigModal;
+$("cancelConfigBtn").onclick = closeConfigModal;
+$("saveConfigBtn").onclick = () => saveConfigFromModal().catch(e => setMsg("保存配置失败：" + e.message, true));
+$("closeDeviceModalBtn").onclick = closeDeviceModal;
+$("cancelDeviceBtn").onclick = closeDeviceModal;
+$("saveDeviceBtn").onclick = () => saveDeviceFromModal().catch(e => setMsg("保存设备失败：" + e.message, true));
+document.querySelectorAll(".tab").forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
+document.querySelectorAll(".focus-secret").forEach(input => {
+  input.addEventListener("focus", () => { input.type = "text"; });
+  input.addEventListener("blur", () => { input.type = "password"; });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeConfigModal();
+    closeDeviceModal();
+  }
+  if (e.key === "Enter" && !$("login").classList.contains("hidden")) login();
+});
+
+showApp();
+if (state.token) {
+  loadRooms().catch(() => logout());
+}
+renderConfigSummary(defaultConfig);
+</script>
+</body>
+</html>

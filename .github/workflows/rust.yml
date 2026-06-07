@@ -1,0 +1,294 @@
+name: Rust
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    tags:
+      - "*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_VERSION: "1.78"
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Install Rust
+        run: |
+          rustup set auto-self-update disable
+          rustup install $RUST_VERSION
+          rustup default $RUST_VERSION
+      - name: Cargo cache
+        uses: actions/cache@main
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: test-cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+      - name: Check
+        run: cargo check --locked
+      - name: Test
+        run: cargo test --locked
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - TARGET: x86_64-unknown-linux-musl
+            OS: ubuntu-latest
+          - TARGET: i686-unknown-linux-musl
+            OS: ubuntu-latest
+          - TARGET: aarch64-unknown-linux-musl
+            OS: ubuntu-latest
+          - TARGET: armv7-unknown-linux-musleabihf
+            OS: ubuntu-latest
+          - TARGET: armv7-unknown-linux-musleabi
+            OS: ubuntu-latest
+          - TARGET: arm-unknown-linux-musleabihf
+            OS: ubuntu-latest
+          - TARGET: arm-unknown-linux-musleabi
+            OS: ubuntu-latest
+          - TARGET: mipsel-unknown-linux-musl
+            OS: ubuntu-latest
+          - TARGET: mips-unknown-linux-musl
+            OS: ubuntu-latest
+          - TARGET: x86_64-apple-darwin
+            OS: macos-latest
+          - TARGET: aarch64-apple-darwin
+            OS: macos-latest
+          # - TARGET: i686-pc-windows-msvc
+          #   OS: windows-2022
+          - TARGET: x86_64-pc-windows-msvc
+            OS: windows-latest
+    runs-on: ${{ matrix.OS }}
+    env:
+      NAME: vnt-hub
+      TARGET: ${{ matrix.TARGET }}
+      OS: ${{ matrix.OS }}
+    steps:
+      - uses: actions/checkout@main
+      - name: Cargo cache
+        uses: actions/cache@main
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: build-cargo-${{ matrix.TARGET }}-${{ hashFiles('Cargo.lock') }}
+      - name: Install and configure dependencies
+        run: |
+          rustup set auto-self-update disable
+          rustup install $RUST_VERSION
+          rustup default $RUST_VERSION
+
+          # if [[ $OS =~ ^windows.*$ ]]; then
+          #   echo "AWS_LC_SYS_NO_ASM=1" >> "$GITHUB_ENV"
+          # fi
+
+          if [[ $OS =~ ^ubuntu.*$ ]]; then
+            sudo apt-get update
+            sudo apt-get install -y musl-tools clang llvm cmake g++ make nasm perl libc6-dev crossbuild-essential-arm64 crossbuild-essential-armhf
+            case $TARGET in
+              i686-unknown-linux-musl)
+                MUSL_URI=i686-linux-musl-cross
+                ;;
+              aarch64-unknown-linux-musl)
+                MUSL_URI=aarch64-linux-musl-cross
+                ;;
+              armv7-unknown-linux-musleabihf)
+                MUSL_URI=armv7l-linux-musleabihf-cross
+                ;;
+              armv7-unknown-linux-musleabi)
+                MUSL_URI=armv7m-linux-musleabi-cross
+                ;;
+              arm-unknown-linux-musleabihf)
+                MUSL_URI=arm-linux-musleabihf-cross
+                ;;
+              arm-unknown-linux-musleabi)
+                MUSL_URI=arm-linux-musleabi-cross
+                ;;
+              mipsel-unknown-linux-musl)
+                MUSL_URI=mipsel-linux-muslsf-cross
+                MUSL_URL=mipsel-linux-muslsf
+                ;;
+              mips-unknown-linux-musl)
+                MUSL_URI=mips-linux-muslsf-cross
+                MUSL_URL=mips-linux-muslsf
+                ;;
+            esac
+
+            if [[ $TARGET =~ ^mips.*$ ]]; then
+              rustup toolchain install nightly-2024-03-10-x86_64-unknown-linux-gnu
+              rustup component add rust-src --toolchain nightly-2024-03-10-x86_64-unknown-linux-gnu
+              RUST_LIB_SRC=$HOME/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/
+              if [[ -f $RUST_LIB_SRC/library/Cargo.lock && ! -f $RUST_LIB_SRC/Cargo.lock ]]; then 
+                cp -f $RUST_LIB_SRC/library/Cargo.lock $RUST_LIB_SRC/Cargo.lock
+              fi
+            fi
+
+            if [ -n "$MUSL_URI" ]; then
+              mkdir -p /opt/musl_gcc
+              wget -c https://github.com/lmq8267/Toolchain/releases/download/musl-cross/$MUSL_URI.tgz -P /opt/musl_gcc/
+              tar zxf /opt/musl_gcc/$MUSL_URI.tgz -C /opt/musl_gcc/
+              sudo ln -sf /opt/musl_gcc/$MUSL_URI/bin/*gcc /usr/bin/
+            fi
+
+            if [[ $TARGET =~ ^mips.*$ ]]; then
+              cd /opt/musl_gcc/${MUSL_URL}-cross/lib/gcc/${MUSL_URL}/11.2.1
+              cp libgcc_eh.a libunwind.a
+              cd -
+            fi
+          fi
+
+          mkdir -p ~/.cargo
+          cat >>~/.cargo/config <<EOF
+          [target.x86_64-unknown-linux-musl]
+          rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+
+          [target.i686-unknown-linux-musl]
+          linker = "i686-linux-musl-gcc"
+          rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+
+          [target.aarch64-unknown-linux-musl]
+          linker = "aarch64-linux-musl-gcc"
+          rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+
+          [target.armv7-unknown-linux-musleabihf]
+          linker = "armv7l-linux-musleabihf-gcc"
+          rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+
+          [target.armv7-unknown-linux-musleabi]
+          linker = "armv7m-linux-musleabi-gcc"
+          rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+
+          [target.arm-unknown-linux-musleabihf]
+          linker = "arm-linux-musleabihf-gcc"
+          rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+
+          [target.arm-unknown-linux-musleabi]
+          linker = "arm-linux-musleabi-gcc"
+          rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+
+          [target.mipsel-unknown-linux-musl]
+          linker = "mipsel-linux-muslsf-gcc"
+          rustflags = [
+            "-C", "target-feature=+crt-static",
+            "-C", "strip=symbols",
+            "-C", "link-arg=-static",
+            "-C", "relocation-model=static",
+            "-C", "link-arg=-no-pie",
+            "-C", "link-arg=-Wl,--allow-multiple-definition",
+            "--cfg", "compiler_builtins_no_debug",
+            "-L", "/opt/musl_gcc/mipsel-linux-muslsf-cross/mipsel-linux-muslsf/lib",
+            "-L", "/opt/musl_gcc/mipsel-linux-muslsf-cross/lib/gcc/mipsel-linux-muslsf/11.2.1",
+            "-l", "gcc"
+          ]
+
+          [target.mips-unknown-linux-musl]
+          linker = "mips-linux-muslsf-gcc"
+          rustflags = [
+            "-C", "target-feature=+crt-static",
+            "-C", "strip=symbols",
+            "-C", "link-arg=-static",
+            "-C", "relocation-model=static",
+            "-C", "link-arg=-no-pie",
+            "-C", "link-arg=-Wl,--allow-multiple-definition",
+            "--cfg", "compiler_builtins_no_debug",
+            "-L", "/opt/musl_gcc/mips-linux-muslsf-cross/mips-linux-muslsf/lib",
+            "-L", "/opt/musl_gcc/mips-linux-muslsf-cross/lib/gcc/mips-linux-muslsf/11.2.1",
+            "-l", "gcc"
+          ]
+
+          [target.x86_64-apple-darwin]
+          rustflags = ["-C", "strip=symbols"]
+
+          [target.aarch64-apple-darwin]
+          rustflags = ["-C", "strip=symbols"]
+
+          [target.i686-pc-windows-msvc]
+          rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+
+          [target.x86_64-pc-windows-msvc]
+          rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+          EOF
+      - name: Install rust target
+        if: ${{ ! startsWith(matrix.TARGET, 'mips') }}
+        run: rustup target add $TARGET
+      - name: Build
+        run: |
+          if [[ $TARGET =~ ^mips.*$ ]]; then
+            cargo +nightly-2024-03-10 build --locked --release --verbose --target $TARGET -Z build-std=std,panic_abort
+          else
+            cargo build --locked --release --verbose --target $TARGET
+          fi
+      - name: Install UPX
+        if: runner.os == 'Linux'
+        uses: crazy-max/ghaction-upx@master
+        with:
+          version: v4.2.4
+          install-only: true
+      - name: Package
+        run: |
+          mkdir -p ./artifacts/upload_file
+          if [[ $GITHUB_REF_TYPE =~ ^tag$ ]]; then
+            TAG=$GITHUB_REF_NAME
+          else
+            TAG=$GITHUB_SHA
+          fi
+
+          if [[ $OS =~ ^windows.*$ ]]; then
+            EXEC=$NAME.exe
+          else
+            EXEC=$NAME
+          fi
+
+          cp ./target/$TARGET/release/$EXEC ./artifacts/$EXEC
+          cp ./README.md ./artifacts/README.md
+          if [[ "$OS" == ubuntu* ]]; then
+            upx --lzma --best ./artifacts/$EXEC || true
+          fi
+
+          tar -czf ./artifacts/upload_file/$NAME-$TARGET-$TAG.tar.gz -C ./artifacts $EXEC README.md
+      - name: Archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vnt-hub-${{ matrix.TARGET }}
+          path: ./artifacts/upload_file
+
+  deploy:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+      - name: List artifacts
+        run: find ./artifacts
+      - name: Upload release assets
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ./artifacts/**/*.tar.gz
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true
