@@ -37,11 +37,11 @@ impl Database {
                 sqlx::query(sql).execute(&self.pool).await?;
             }
         }
-        self.ensure_device_traffic_columns().await?;
+        self.ensure_device_runtime_columns().await?;
         Ok(())
     }
 
-    async fn ensure_device_traffic_columns(&self) -> anyhow::Result<()> {
+    async fn ensure_device_runtime_columns(&self) -> anyhow::Result<()> {
         let columns = sqlx::query("PRAGMA table_info(devices)")
             .fetch_all(&self.pool)
             .await?;
@@ -53,6 +53,11 @@ impl Database {
             ("up_stream", "INTEGER DEFAULT 0"),
             ("down_stream", "INTEGER DEFAULT 0"),
             ("traffic_updated_at", "INTEGER"),
+            ("client_version", "TEXT"),
+            ("console_public_ip", "TEXT"),
+            ("vnts_status", "TEXT"),
+            ("vnts_error", "TEXT"),
+            ("vnts_updated_at", "INTEGER"),
         ] {
             if !names.contains(name) {
                 sqlx::query(&format!(
@@ -250,6 +255,8 @@ impl Database {
         device_id: Option<&str>,
         device_token: Option<&str>,
         device_name: &str,
+        client_version: Option<&str>,
+        console_public_ip: Option<&str>,
     ) -> anyhow::Result<(String, Option<String>, String)> {
         if let (Some(id), Some(token)) = (device_id, device_token) {
             let row = sqlx::query(
@@ -267,12 +274,26 @@ impl Database {
                 anyhow::bail!("device auth failed");
             }
             let status: String = row.get(1);
-            sqlx::query("UPDATE devices SET display_name = ?1, last_seen = ?2, status = CASE WHEN status = 'kicked' THEN status ELSE 'online' END WHERE id = ?3")
-                .bind(device_name)
-                .bind(now())
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                "UPDATE devices SET
+                     display_name = ?1,
+                     client_version = COALESCE(?2, client_version),
+                     console_public_ip = CASE
+                         WHEN ?3 IS NULL THEN console_public_ip
+                         WHEN console_public_ip IS NULL OR console_public_ip != ?3 THEN ?3
+                         ELSE console_public_ip
+                     END,
+                     last_seen = ?4,
+                     status = CASE WHEN status = 'kicked' THEN status ELSE 'online' END
+                 WHERE id = ?5",
+            )
+            .bind(device_name)
+            .bind(client_version)
+            .bind(console_public_ip)
+            .bind(now())
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
             return Ok((id.into(), None, status));
         }
 
@@ -280,12 +301,14 @@ impl Database {
         let token = crypto::random_base64(32);
         let now = now();
         sqlx::query(
-            "INSERT INTO devices(id, room_id, display_name, device_token, last_seen, status, config_version, created_at)
-             VALUES(?1, ?2, ?3, ?4, ?5, 'pending', 0, ?5)",
+            "INSERT INTO devices(id, room_id, display_name, client_version, console_public_ip, device_token, last_seen, status, config_version, created_at)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', 0, ?7)",
         )
         .bind(&id)
         .bind(room_id)
         .bind(device_name)
+        .bind(client_version)
+        .bind(console_public_ip)
         .bind(&token)
         .bind(now)
         .execute(&self.pool)
@@ -295,7 +318,7 @@ impl Database {
 
     pub async fn list_devices(&self, room_id: &str) -> anyhow::Result<Vec<Device>> {
         let rows = sqlx::query(
-            "SELECT id, room_id, group_id, display_name, network_ip, network_node_id, last_seen, status, config_version,
+            "SELECT id, room_id, group_id, display_name, client_version, console_public_ip, network_ip, network_node_id, last_seen, status, vnts_status, vnts_error, vnts_updated_at, config_version,
                     COALESCE(up_stream, 0), COALESCE(down_stream, 0), traffic_updated_at, created_at
              FROM devices WHERE room_id = ?1 ORDER BY created_at DESC",
         )
@@ -418,6 +441,29 @@ impl Database {
             updated_at: now,
             config: Some(config.clone()),
         })
+    }
+
+    pub async fn create_group_with_version(
+        &self,
+        room_id: &str,
+        name: &str,
+        config: &VntClientConfig,
+        config_version: i64,
+    ) -> anyhow::Result<Group> {
+        let mut group = self.create_group(room_id, name, config).await?;
+        let version = config_version.max(1);
+        if version != group.config_version {
+            let now = now();
+            sqlx::query("UPDATE groups SET config_version = ?1, updated_at = ?2 WHERE id = ?3")
+                .bind(version)
+                .bind(now)
+                .bind(&group.id)
+                .execute(&self.pool)
+                .await?;
+            group.config_version = version;
+            group.updated_at = now;
+        }
+        Ok(group)
     }
 
     pub async fn list_groups(&self, room_id: &str) -> anyhow::Result<Vec<Group>> {
@@ -705,6 +751,26 @@ impl Database {
         Ok(())
     }
 
+    pub async fn update_device_vnts_status(
+        &self,
+        device_id: &str,
+        status: &str,
+        error: Option<&str>,
+    ) -> anyhow::Result<()> {
+        sqlx::query(
+            "UPDATE devices
+             SET vnts_status = ?1, vnts_error = ?2, vnts_updated_at = ?3, last_seen = ?3
+             WHERE id = ?4",
+        )
+        .bind(status)
+        .bind(error)
+        .bind(now())
+        .bind(device_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn list_events(
         &self,
         device_id: Option<&str>,
@@ -965,11 +1031,16 @@ impl Database {
                     "room_id",
                     "group_id",
                     "display_name",
+                    "client_version",
+                    "console_public_ip",
                     "network_ip",
                     "network_node_id",
                     "device_token",
                     "last_seen",
                     "status",
+                    "vnts_status",
+                    "vnts_error",
+                    "vnts_updated_at",
                     "config_version",
                     "up_stream",
                     "down_stream",
@@ -1135,15 +1206,20 @@ fn device_from_row(r: sqlx::sqlite::SqliteRow) -> Device {
         room_id: r.get(1),
         group_id: r.get(2),
         display_name: r.get(3),
-        network_ip: r.get(4),
-        network_node_id: r.get(5),
-        last_seen: r.get(6),
-        status: r.get(7),
-        config_version: r.get(8),
-        up_stream: r.get(9),
-        down_stream: r.get(10),
-        traffic_updated_at: r.get(11),
-        created_at: r.get(12),
+        client_version: r.get(4),
+        console_public_ip: r.get(5),
+        network_ip: r.get(6),
+        network_node_id: r.get(7),
+        last_seen: r.get(8),
+        status: r.get(9),
+        vnts_status: r.get(10),
+        vnts_error: r.get(11),
+        vnts_updated_at: r.get(12),
+        config_version: r.get(13),
+        up_stream: r.get(14),
+        down_stream: r.get(15),
+        traffic_updated_at: r.get(16),
+        created_at: r.get(17),
     }
 }
 
@@ -1185,11 +1261,16 @@ CREATE TABLE IF NOT EXISTS devices (
     room_id TEXT NOT NULL,
     group_id TEXT,
     display_name TEXT NOT NULL,
+    client_version TEXT,
+    console_public_ip TEXT,
     network_ip TEXT,
     network_node_id TEXT,
     device_token TEXT NOT NULL,
     last_seen INTEGER,
     status TEXT NOT NULL DEFAULT 'pending',
+    vnts_status TEXT,
+    vnts_error TEXT,
+    vnts_updated_at INTEGER,
     config_version INTEGER NOT NULL DEFAULT 0,
     up_stream INTEGER DEFAULT 0,
     down_stream INTEGER DEFAULT 0,

@@ -36,15 +36,26 @@ pub struct Device {
     pub room_id: String,
     pub group_id: Option<String>,
     pub display_name: String,
+    pub client_version: Option<String>,
+    pub console_public_ip: Option<String>,
     pub network_ip: Option<String>,
     pub network_node_id: Option<String>,
     pub last_seen: Option<i64>,
     pub status: String,
+    pub vnts_status: Option<String>,
+    pub vnts_error: Option<String>,
+    pub vnts_updated_at: Option<i64>,
     pub config_version: i64,
     pub up_stream: i64,
     pub down_stream: i64,
     pub traffic_updated_at: Option<i64>,
     pub created_at: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PublicConfig {
+    pub allow_register: bool,
+    pub console_version: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -171,6 +182,15 @@ pub enum ClientMessage {
         device_token: Option<String>,
         device_name: String,
         protocol_version: u32,
+        #[serde(default)]
+        client_version: Option<String>,
+    },
+    ConfigState {
+        config_version: u32,
+        group_id: Option<String>,
+        config_name: Option<String>,
+        config: VntClientConfig,
+        running: bool,
     },
     EventReport {
         event_type: String,
@@ -181,6 +201,9 @@ pub enum ClientMessage {
         config_version: u32,
     },
     Heartbeat {
+        timestamp: u64,
+    },
+    Disconnect {
         timestamp: u64,
     },
     TrafficStats {
@@ -248,6 +271,7 @@ pub enum ServerMessage {
         device_id: String,
         device_token: Option<String>,
         status: String,
+        console_version: String,
     },
     ConfigPush {
         version: u32,

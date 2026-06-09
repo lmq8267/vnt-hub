@@ -26,7 +26,7 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState::new(db, args.clone());
     let app = api::router(state.clone());
-    let console_app = client_api::router(state);
+    let console_app = client_api::router(state.clone());
 
     let web_addr = args
         .listen
@@ -42,7 +42,14 @@ async fn main() -> anyhow::Result<()> {
 
     tokio::try_join!(
         http_server::serve_auto_tls(web_addr, app, cert_pem.clone(), key_pem.clone()),
-        http_server::serve_auto_tls(console_addr, console_app, cert_pem, key_pem),
+        http_server::serve_auto_tls_with_raw(
+            console_addr,
+            console_app,
+            cert_pem,
+            key_pem,
+            Some(client_api::raw_tcp_handler(state.clone())),
+        ),
+        client_api::serve_udp(state, console_addr),
     )?;
     Ok(())
 }

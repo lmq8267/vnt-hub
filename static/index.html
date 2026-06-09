@@ -289,7 +289,7 @@
   </div>
   <div class="row">
     <button class="primary" id="loginBtn">登录</button>
-    <button id="registerBtn">注册</button>
+    <button id="registerBtn" class="hidden">注册</button>
   </div>
   <div id="loginMsg" class="msg"></div>
 </div>
@@ -337,10 +337,12 @@
               <tr>
                 <th>设备</th>
                 <th>状态</th>
+                <th>vnts 服务</th>
+                <th>出口 IP</th>
                 <th>IP / 节点</th>
                 <th>分组</th>
                 <th>流量</th>
-                <th>版本</th>
+                <th>客户端 / 配置</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -640,6 +642,10 @@ const defaultConfig = {
 
 const state = {
   token: localStorage.getItem("vntHubToken") || "",
+  publicConfig: {
+    allow_register: false,
+    console_version: ""
+  },
   rooms: [],
   devices: [],
   groups: [],
@@ -679,6 +685,17 @@ async function api(path, options = {}) {
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("application/json")) return res.json();
   return res.text();
+}
+
+async function loadPublicConfig() {
+  try {
+    state.publicConfig = await api("/api/public/config");
+  } catch (_) {
+    state.publicConfig = { allow_register: false, console_version: "" };
+  }
+  const registerBtn = $("registerBtn");
+  registerBtn.classList.toggle("hidden", !state.publicConfig.allow_register);
+  registerBtn.disabled = !state.publicConfig.allow_register;
 }
 
 function listText(values) {
@@ -856,6 +873,10 @@ async function login() {
 
 async function register() {
   setLoginMsg("");
+  if (!state.publicConfig.allow_register) {
+    setLoginMsg("当前控制台已禁止注册", true);
+    return;
+  }
   const username = $("username").value.trim();
   const password = $("password").value;
   if (!username || !password) {
@@ -942,18 +963,26 @@ function renderDevices() {
       <td></td>
       <td></td>
       <td></td>
+      <td></td>
+      <td></td>
       <td class="row wrap"></td>`;
     tr.children[0].querySelector("strong").textContent = d.display_name;
     tr.children[0].querySelector(".item-meta").textContent = d.id;
     tr.children[1].textContent = d.status;
     tr.children[1].className = "status-" + d.status;
-    tr.children[2].textContent = [d.network_ip, d.network_node_id].filter(Boolean).join(" / ") || "-";
-    tr.children[3].textContent = group ? group.name : "-";
-    tr.children[4].innerHTML = `<div></div><div class="item-meta"></div>`;
-    tr.children[4].children[0].textContent = `↑ ${formatBytes(d.up_stream)} / ↓ ${formatBytes(d.down_stream)}`;
-    tr.children[4].children[1].textContent = "更新 " + formatTime(d.traffic_updated_at);
-    tr.children[5].textContent = d.config_version;
-    const ops = tr.children[6];
+    tr.children[2].innerHTML = `<div></div><div class="item-meta"></div>`;
+    tr.children[2].children[0].textContent = d.vnts_status || "-";
+    tr.children[2].children[1].textContent = d.vnts_error || (d.vnts_updated_at ? "更新 " + formatTime(d.vnts_updated_at) : "");
+    tr.children[3].textContent = d.console_public_ip || "-";
+    tr.children[4].textContent = [d.network_ip, d.network_node_id].filter(Boolean).join(" / ") || "-";
+    tr.children[5].textContent = group ? group.name : "-";
+    tr.children[6].innerHTML = `<div></div><div class="item-meta"></div>`;
+    tr.children[6].children[0].textContent = `↑ ${formatBytes(d.up_stream)} / ↓ ${formatBytes(d.down_stream)}`;
+    tr.children[6].children[1].textContent = "更新 " + formatTime(d.traffic_updated_at);
+    tr.children[7].innerHTML = `<div></div><div class="item-meta"></div>`;
+    tr.children[7].children[0].textContent = d.client_version || "-";
+    tr.children[7].children[1].textContent = "配置 " + d.config_version;
+    const ops = tr.children[8];
     const select = document.createElement("select");
     select.innerHTML = `<option value="">未分组</option>` + state.groups.map(g => `<option value="${g.id}"></option>`).join("");
     [...select.options].forEach((o, i) => {
@@ -1244,6 +1273,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 showApp();
+loadPublicConfig();
 if (state.token) {
   loadRooms().catch(() => logout());
 }

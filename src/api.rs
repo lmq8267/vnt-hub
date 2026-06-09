@@ -16,13 +16,14 @@ use crate::crypto;
 use crate::db;
 use crate::models::{
     BackupEnvelope, ChangePasswordRequest, CreateGroupRequest, CreateRoomRequest, LoginRequest,
-    LoginResponse, ServerMessage, UpdateDeviceRequest, UpdateGroupRequest,
+    LoginResponse, PublicConfig, ServerMessage, UpdateDeviceRequest, UpdateGroupRequest,
 };
 use crate::state::AppState;
 
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/", get(index))
+        .route("/api/public/config", get(public_config))
         .route("/api/auth/login", post(login))
         .route("/api/auth/register", post(register))
         .route("/api/auth/change-password", post(change_password))
@@ -63,6 +64,13 @@ pub fn router(state: AppState) -> Router {
 
 async fn index() -> Html<&'static str> {
     Html(include_str!("../static/index.html"))
+}
+
+async fn public_config(State(state): State<AppState>) -> Json<PublicConfig> {
+    Json(PublicConfig {
+        allow_register: !state.args.disable_register,
+        console_version: env!("CARGO_PKG_VERSION").into(),
+    })
 }
 
 async fn login(
@@ -414,7 +422,7 @@ async fn push_group(
     Ok(Json(json!({ "pushed": count })))
 }
 
-async fn push_config_to_device(
+pub(crate) async fn push_config_to_device(
     state: &AppState,
     device_id: &str,
     group_id: Option<&str>,
@@ -427,16 +435,33 @@ async fn push_config_to_device(
     else {
         return Err(StatusCode::NOT_FOUND);
     };
+    let config_name: Option<String> = if let Some(group_id) = effective_group_id.as_deref() {
+        sqlx::query_scalar("SELECT name FROM groups WHERE id = ?1")
+            .bind(group_id)
+            .fetch_optional(&state.db.pool)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    } else {
+        None
+    };
     let payload = json!({
         "device_id": device_id,
         "group_id": effective_group_id.clone(),
+        "config_name": config_name,
         "config_version": version,
         "config": config,
     });
-    let master = crypto::master_key();
+    let device_token: String = sqlx::query_scalar("SELECT device_token FROM devices WHERE id = ?1")
+        .bind(device_id)
+        .fetch_optional(&state.db.pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    let push_version = version as u32;
+    let master = crypto::device_push_key_material(device_id, &device_token);
     let (encrypted_config, nonce) = crypto::encrypt_parts(
         &master,
-        &format!("push:{}:{}", device_id, version),
+        &crypto::device_push_context(device_id, push_version),
         &payload.to_string(),
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -454,7 +479,7 @@ async fn push_config_to_device(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     if let Some(tx) = state.clients.read().await.get(device_id) {
         let _ = tx.send(ServerMessage::ConfigPush {
-            version: version as u32,
+            version: push_version,
             encrypted_config,
             nonce,
         });

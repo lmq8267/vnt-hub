@@ -1,10 +1,11 @@
+use std::future::Future;
 use std::io::Cursor;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use axum::Router;
+use axum::{Extension, Router};
 use hyper::server::conn::Http;
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
@@ -13,11 +14,25 @@ use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use tokio_rustls::rustls::ServerConfig;
 use tokio_rustls::TlsAcceptor;
 
+pub type RawTcpHandler = Arc<
+    dyn Fn(PrefixedStream, SocketAddr) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync,
+>;
+
 pub async fn serve_auto_tls(
     addr: SocketAddr,
     app: Router,
     cert_pem: Vec<u8>,
     key_pem: Vec<u8>,
+) -> anyhow::Result<()> {
+    serve_auto_tls_with_raw(addr, app, cert_pem, key_pem, None).await
+}
+
+pub async fn serve_auto_tls_with_raw(
+    addr: SocketAddr,
+    app: Router,
+    cert_pem: Vec<u8>,
+    key_pem: Vec<u8>,
+    raw_tcp: Option<RawTcpHandler>,
 ) -> anyhow::Result<()> {
     let listener = TcpListener::bind(addr).await?;
     let tls = TlsAcceptor::from(Arc::new(tls_config(cert_pem, key_pem)?));
@@ -25,15 +40,23 @@ pub async fn serve_auto_tls(
         let (stream, peer) = listener.accept().await?;
         let app = app.clone();
         let tls = tls.clone();
+        let raw_tcp = raw_tcp.clone();
         tokio::spawn(async move {
-            if let Err(e) = serve_one(stream, app, tls).await {
+            if let Err(e) = serve_one(peer, stream, app, tls, raw_tcp).await {
                 log::warn!("connection {} failed {:?}", peer, e);
             }
         });
     }
 }
 
-async fn serve_one(stream: TcpStream, app: Router, tls: TlsAcceptor) -> anyhow::Result<()> {
+async fn serve_one(
+    peer: SocketAddr,
+    stream: TcpStream,
+    app: Router,
+    tls: TlsAcceptor,
+    raw_tcp: Option<RawTcpHandler>,
+) -> anyhow::Result<()> {
+    let app = app.layer(Extension(peer));
     let mut first = [0u8; 1];
     stream.readable().await?;
     let n = stream.try_read(&mut first)?;
@@ -47,6 +70,15 @@ async fn serve_one(stream: TcpStream, app: Router, tls: TlsAcceptor) -> anyhow::
             .serve_connection(tls_stream, app)
             .with_upgrades()
             .await?;
+    } else if first[0] == b'{' {
+        if let Some(handler) = raw_tcp {
+            handler(prefixed, peer).await;
+        } else {
+            Http::new()
+                .serve_connection(prefixed, app)
+                .with_upgrades()
+                .await?;
+        }
     } else {
         Http::new()
             .serve_connection(prefixed, app)
@@ -75,7 +107,7 @@ fn load_private_key(key_pem: Vec<u8>) -> anyhow::Result<PrivateKeyDer<'static>> 
     anyhow::bail!("tls private key missing")
 }
 
-struct PrefixedStream {
+pub struct PrefixedStream {
     prefix: Cursor<Vec<u8>>,
     inner: TcpStream,
 }

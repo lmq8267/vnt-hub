@@ -86,3 +86,11 @@ pub fn decrypt_parts(
 pub fn master_key() -> String {
     std::env::var("CONSOLE_MASTER_KEY").unwrap_or_else(|_| "vnt-hub-default-dev-master-key".into())
 }
+
+pub fn device_push_key_material(device_id: &str, device_token: &str) -> String {
+    format!("{}:{}", device_id, device_token)
+}
+
+pub fn device_push_context(device_id: &str, version: u32) -> String {
+    format!("push:{}:{}", device_id, version)
+}
